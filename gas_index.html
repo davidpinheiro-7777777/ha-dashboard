@@ -136,7 +136,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
   <div class="month-bar" id="food-month-bar"></div>
   <div class="card" style="margin-bottom:16px"><div class="tbl-wrap">
     <table>
-      <thead><tr><th>#</th><th>Prato</th><th>Categoria</th><th class="num">Total s/IVA</th><th class="num">Unidades</th><th class="num">Preço médio</th></tr></thead>
+      <thead><tr><th>#</th><th>Prato</th><th>Categoria</th><th class="num">Total s/IVA</th><th class="num">Unidades</th></tr></thead>
       <tbody id="food-tbody"></tbody>
     </table>
   </div></div>
@@ -150,7 +150,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
   <div class="month-bar" id="drinks-month-bar"></div>
   <div class="card" style="margin-bottom:16px"><div class="tbl-wrap">
     <table>
-      <thead><tr><th>#</th><th>Bebida</th><th>Categoria</th><th class="num">Total s/IVA</th><th class="num">Unidades</th><th class="num">Preço médio</th></tr></thead>
+      <thead><tr><th>#</th><th>Bebida</th><th>Categoria</th><th class="num">Total s/IVA</th><th class="num">Unidades</th></tr></thead>
       <tbody id="drinks-tbody"></tbody>
     </table>
   </div></div>
@@ -572,7 +572,6 @@ function renderTotaisTable(tbodyId, items) {
       <td><span style="display:inline-block;width:8px;height:8px;background:${color};border-radius:50%;margin-right:5px;vertical-align:middle"></span>${item.cat}</td>
       <td class="num" style="color:${color};font-weight:${idx<5?'500':'400'}">${fmtE(item.t)}</td>
       <td class="num" style="color:var(--muted)">${item.q}</td>
-      <td class="num" style="color:var(--muted)">${item.q > 0 ? fmtE(item.t/item.q, 2) : '—'}</td>
     </tr>`;
   });
 }
