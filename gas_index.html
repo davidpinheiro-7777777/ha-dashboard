@@ -162,7 +162,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
 
 
 <section id="outubro">
-  <div class="live-badge"><span class="live-dot"></span> Dados em tempo real &nbsp;|&nbsp; valores c/IVA</div>
+  <div class="live-badge"><span class="live-dot"></span> Dados em tempo real &nbsp;|&nbsp; valores s/IVA</div>
   <div class="out-grid" id="out-cards"></div>
   <div class="chart-card" style="margin-bottom:16px">
     <div class="chart-title" id="out-chart-title">Facturação diária s/IVA (€)</div>
@@ -333,7 +333,7 @@ function buildOutubro(){
     if(!mes||!MES_NUM[mes])continue;
     const key=`${ano}-${mes}`;
     if(!byPeriod[key])byPeriod[key]={};
-    byPeriod[key][dia]=(byPeriod[key][dia]||0)+val;
+    byPeriod[key][dia]=(byPeriod[key][dia]||0)+val/IVA;
   }
   const periodSortKey=k=>{const[a,m]=k.split('-');return parseInt(a)*100+(MES_NUM[m]||0)};
   const periods=Object.keys(byPeriod).sort((a,b)=>periodSortKey(a)-periodSortKey(b));
