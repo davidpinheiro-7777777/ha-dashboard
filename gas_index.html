@@ -42,8 +42,8 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
 .month-bar button:hover{border-color:var(--accent);color:var(--accent)}
 .month-bar button.active{background:var(--accent);color:#000;border-color:var(--accent);font-weight:500}
 /* OUTUBRO */
-#btn-outubro{color:var(--green)}
-#btn-outubro.active{color:#000;background:var(--green)}
+.live-btn{color:var(--green)}
+.live-btn.active{color:#000;background:var(--green)}
 .live-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--green);font-family:var(--mono);margin-bottom:20px}
 .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%}
 .out-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:16px}
@@ -94,7 +94,6 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
   <button onclick="tab('totais-food')">Totais Comida</button>
   <button onclick="tab('totais-drinks')">Totais Bebidas</button>
   <button onclick="tab('fichas')">Fichas Técnicas</button>
-  <button onclick="tab('outubro')" id="btn-outubro">Outubro ●</button>
 </nav>
 <main>
 
@@ -216,20 +215,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
 </section>
 
 
-<section id="outubro">
-  <div class="live-badge"><span class="live-dot"></span> Dados em tempo real &nbsp;|&nbsp; valores s/IVA</div>
-  <div class="out-grid" id="out-cards"></div>
-  <div class="chart-card" style="margin-bottom:16px">
-    <div class="chart-title" id="out-chart-title">Facturação diária s/IVA (€)</div>
-    <div class="chart-wrap tall"><canvas id="c-out-daily"></canvas></div>
-  </div>
-  <div class="card"><div class="tbl-wrap">
-    <table class="day-table">
-      <thead><tr><th>Dia</th><th class="num" id="out-th-cur">Mês actual</th><th class="num" id="out-th-ly">Ano anterior</th><th class="num" id="out-th-prev">Mês anterior</th><th class="num">Acumulado</th></tr></thead>
-      <tbody id="out-tbody"></tbody>
-    </table>
-  </div></div>
-</section>
+<!-- separadores de meses em tempo real: gerados por JS a partir de LIVE_MESES -->
 
 </main>
 
@@ -266,7 +252,7 @@ function tab(id){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   event.currentTarget.classList.add('active');
-  if(id==='outubro') buildOutubro();
+  if(id.startsWith('live-')) buildLive(id);
   if(id==='custos') buildCustos();
   if(id==='fichas') buildFichas();
 }
@@ -380,11 +366,12 @@ function buildMensal(){
   });
 }
 
-// ---- OUTUBRO (dados do sheet em tempo real) ----
-let chartOutDaily;
-function buildOutubro(){
+// ---- MESES EM TEMPO REAL (dados do sheet; um separador por mês aberto) ----
+const chartsLive = {};
+function buildLive(id){
+  const [mesAlvo, anoAlvo] = LIVE_INFO[id];
   if(!SHEET_ROWS||!SHEET_ROWS.length){
-    document.getElementById('out-cards').innerHTML='<div style="color:var(--muted);padding:20px">Sem dados disponíveis.</div>';
+    document.getElementById('out-cards-'+id).innerHTML='<div style="color:var(--muted);padding:20px">Sem dados disponíveis.</div>';
     return;
   }
   const byPeriod={};
@@ -398,7 +385,8 @@ function buildOutubro(){
   const periodSortKey=k=>{const[a,m]=k.split('-');return parseInt(a)*100+(MES_NUM[m]||0)};
   const periods=Object.keys(byPeriod).sort((a,b)=>periodSortKey(a)-periodSortKey(b));
   if(!periods.length)return;
-  const currentKey=periods[periods.length-1];
+  const currentKey=`${anoAlvo}-${mesAlvo}`;
+  if(!byPeriod[currentKey]){document.getElementById('out-cards-'+id).innerHTML='<div style="color:var(--muted);padding:20px">Ainda sem dados de '+mesAlvo+' '+anoAlvo+'.</div>';return;}
   const[currentAno,currentMes]=currentKey.split('-');
   const currentAnoInt=parseInt(currentAno);
   const currentMesNum=MES_NUM[currentMes];
@@ -427,12 +415,12 @@ function buildOutubro(){
   const pct=(v,base)=>base>0?`${sg(v-base)}${(((v/base)-1)*100).toFixed(1)}%`:'—';
 
   // Update table headers
-  document.getElementById('out-th-cur').textContent=`${currentMes} ${currentAno}`;
-  document.getElementById('out-th-ly').textContent=`${currentMes} ${currentAnoInt-1}`;
-  document.getElementById('out-th-prev').textContent=prevLabel;
-  document.getElementById('out-chart-title').textContent=`Facturação diária ${currentMes} ${currentAno} s/IVA (€)`;
+  document.getElementById('out-th-cur-'+id).textContent=`${currentMes} ${currentAno}`;
+  document.getElementById('out-th-ly-'+id).textContent=`${currentMes} ${currentAnoInt-1}`;
+  document.getElementById('out-th-prev-'+id).textContent=prevLabel;
+  document.getElementById('out-chart-title-'+id).textContent=`Facturação diária ${currentMes} ${currentAno} s/IVA (€)`;
 
-  document.getElementById('out-cards').innerHTML=`
+  document.getElementById('out-cards-'+id).innerHTML=`
     <div class="out-card" style="grid-column:1/-1">
       <div class="out-label">Facturação acumulada — ${currentMes} ${currentAno} (até dia ${lastDay}) — s/IVA</div>
       <div class="out-value" style="color:var(--accent);font-size:32px">${fmtE(accumCurrent)}</div>
@@ -461,11 +449,11 @@ function buildOutubro(){
       <div class="out-sub" style="color:var(--muted)">${fmtE(avgDaily)}/dia × ${totalDaysInMonth} dias</div>
     </div>`;
 
-  if(chartOutDaily)chartOutDaily.destroy();
-  chartOutDaily=new Chart(document.getElementById('c-out-daily'),{type:'bar',data:{labels:allDays.map(d=>`${d}`),datasets:[{label:`${currentMes} ${currentAno}`,data:allDays.map(d=>cur[d]?+cur[d].toFixed(2):null),backgroundColor:'#2a3500',borderColor:'#e8ff47',borderWidth:1,borderRadius:3},{label:`${currentMes} ${currentAnoInt-1}`,data:allDays.map(d=>ly[d]?+ly[d].toFixed(2):null),type:'line',fill:false,borderColor:'#60a5fa66',pointRadius:2,tension:.3}]},options:{...CHART_DEFAULTS,plugins:{legend:{labels:{color:'#888',font:{size:10}},display:true},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtE(ctx.raw)}}}}});
+  if(chartsLive[id])chartsLive[id].destroy();
+  chartsLive[id]=new Chart(document.getElementById('c-out-daily-'+id),{type:'bar',data:{labels:allDays.map(d=>`${d}`),datasets:[{label:`${currentMes} ${currentAno}`,data:allDays.map(d=>cur[d]?+cur[d].toFixed(2):null),backgroundColor:'#2a3500',borderColor:'#e8ff47',borderWidth:1,borderRadius:3},{label:`${currentMes} ${currentAnoInt-1}`,data:allDays.map(d=>ly[d]?+ly[d].toFixed(2):null),type:'line',fill:false,borderColor:'#60a5fa66',pointRadius:2,tension:.3}]},options:{...CHART_DEFAULTS,plugins:{legend:{labels:{color:'#888',font:{size:10}},display:true},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtE(ctx.raw)}}}}});
 
   let rt=0;
-  const tbody=document.getElementById('out-tbody');tbody.innerHTML='';
+  const tbody=document.getElementById('out-tbody-'+id);tbody.innerHTML='';
   allDays.forEach(d=>{
     const v=cur[d]||0,vLY=ly[d]||0,vP=prev[d]||0;
     if(v>0)rt+=v;
@@ -479,6 +467,45 @@ function buildOutubro(){
   tbody.innerHTML+=`<tr style="background:var(--surface2);font-weight:600"><td style="font-family:var(--mono)">Total</td><td class="num" style="color:var(--accent)">${fmtE(accumCurrent)}</td><td class="num">${accumLY>0?fmtE(accumLY):'—'}</td><td class="num">${accumPrev>0?fmtE(accumPrev):'—'}</td><td class="num" style="color:var(--accent)">${fmtE(accumCurrent)}</td></tr>`;
 }
 
+// Meses em tempo real: um separador por mês ainda aberto. A lista vem de dados_gestao.json ("meses_live");
+// esta é só a lista por defeito, usada se o ficheiro não puder ser lido.
+const LIVE_MESES = [['Outubro', 2026], ['Novembro', 2026]];
+const LIVE_INFO = {};
+function montarLive(meses) {
+  const validos = Array.isArray(meses) && meses.length && meses.every(m => Array.isArray(m) && MES_NUM[m[0]] && Number.isInteger(m[1]));
+  if (!validos) return false;
+  const ativa = document.querySelector('section.active');
+  document.querySelectorAll('nav .live-btn, section[id^="live-"]').forEach(e => e.remove());
+  Object.keys(LIVE_INFO).forEach(k => delete LIVE_INFO[k]);
+  meses.forEach(([mes, ano]) => {
+    const id = `live-${mes}-${ano}`; LIVE_INFO[id] = [mes, ano];
+    const btn = document.createElement('button'); btn.className = 'live-btn'; btn.id = 'btn-' + id; btn.textContent = mes + ' ●';
+    btn.setAttribute('onclick', `tab('${id}')`); document.querySelector('nav').appendChild(btn);
+    const sec = document.createElement('section'); sec.id = id;
+    sec.innerHTML = `<div class="live-badge"><span class="live-dot"></span> Dados em tempo real &nbsp;|&nbsp; valores s/IVA</div>
+  <div class="out-grid" id="out-cards-${id}"></div>
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title" id="out-chart-title-${id}">Facturação diária s/IVA (€)</div>
+    <div class="chart-wrap tall"><canvas id="c-out-daily-${id}"></canvas></div>
+  </div>
+  <div class="card"><div class="tbl-wrap">
+    <table class="day-table">
+      <thead><tr><th>Dia</th><th class="num" id="out-th-cur-${id}">Mês actual</th><th class="num" id="out-th-ly-${id}">Ano anterior</th><th class="num" id="out-th-prev-${id}">Mês anterior</th><th class="num">Acumulado</th></tr></thead>
+      <tbody id="out-tbody-${id}"></tbody>
+    </table>
+  </div></div>`;
+    document.querySelector('main').appendChild(sec);
+  });
+  // se o separador que estava aberto desapareceu (mês fechado), voltar à Visão Geral
+  if (!document.querySelector('section.active')) {
+    document.getElementById('visao').classList.add('active');
+    const b0 = document.querySelector('nav button'); if (b0) b0.classList.add('active');
+  } else if (ativa && ativa.id.startsWith('live-') && document.getElementById(ativa.id)) {
+    document.getElementById('btn-' + ativa.id).classList.add('active'); buildLive(ativa.id);
+  }
+  return true;
+}
+montarLive(LIVE_MESES);
 
 // ---- VENDAS DATA ----
 const VENDAS = {"Entrada": [{"n": "Tapa Buracos", "t": 18089.63, "q": 13624, "v": [2345.66, 1829.66, 2379.73, 2034.35, 2247.82, 1806.47, 1949.17, 1708.92, 1787.85]}, {"n": "Pao de Alho com Mozzarella", "t": 5913.25, "q": 1474, "v": [741.92, 585.25, 781.9, 690.57, 820.56, 635.54, 594.91, 525.0, 537.6]}, {"n": "Pão de Alho", "t": 1062.62, "q": 347, "v": [195.97, 74.34, 107.34, 151.18, 121.86, 112.63, 131.33, 75.15, 92.82]}, {"n": "Croquete Takeaway", "t": 1060.69, "q": 763, "v": [137.86, 93.94, 203.58, 136.64, 117.14, 119.56, 84.15, 80.5, 87.32]}, {"n": "Bruschetta Tomate", "t": 642.92, "q": 164, "v": [0, 0, 0, 0, 181.27, 182.31, 159.67, 70.73, 48.94]}, {"n": "Focaccia Barese", "t": 474.09, "q": 121, "v": [57.5, 33.8, 42.25, 53.28, 58.56, 47.58, 63.05, 39.04, 79.03]}, {"n": "Bruschetta Salmao", "t": 403.42, "q": 72, "v": [0, 0, 0, 0, 81.08, 85.4, 94.48, 80.1, 62.36]}, {"n": "Provolone no Forno", "t": 248.61, "q": 35, "v": [21.92, 21.12, 28.46, 48.8, 49.44, 57.67, 21.2, 0, 0]}], "Hamburguer": [{"n": "Hamburguer Bacon", "t": 39465.19, "q": 3212, "v": [4692.88, 3738.66, 4949.79, 3986.42, 5288.24, 4207.95, 4190.22, 3981.82, 4429.21]}, {"n": "Hamburguer Cervejeiro", "t": 37404.91, "q": 3251, "v": [4645.83, 3646.78, 4350.19, 3687.4, 4555.21, 3775.17, 4915.08, 3418.99, 4410.26]}, {"n": "Cheeseburger", "t": 34659.21, "q": 3066, "v": [4794.98, 3395.19, 3429.87, 3725.79, 4021.28, 3806.11, 4286.57, 3392.18, 3807.24]}, {"n": "Americano", "t": 32798.69, "q": 2866, "v": [2282.64, 3412.13, 5027.34, 3194.52, 3997.71, 3752.93, 3868.47, 3595.96, 3666.99]}, {"n": "Gouddar", "t": 19867.23, "q": 1653, "v": [1792.51, 1951.43, 3103.78, 2999.92, 2245.53, 1925.0, 2024.08, 1773.12, 2051.86]}, {"n": "Hamburguer Chévre", "t": 19603.19, "q": 1626, "v": [2160.68, 2297.46, 2118.19, 2066.08, 2351.04, 1989.72, 2522.44, 1905.05, 2192.53]}, {"n": "Hamburguer Tuga", "t": 17546.94, "q": 1517, "v": [1842.67, 1931.98, 2191.9, 1840.18, 2108.69, 1736.62, 2103.95, 1899.99, 1890.96]}, {"n": "Hamburguer D.Quixote", "t": 17117.2, "q": 1322, "v": [1814.85, 1649.83, 2138.1, 1779.32, 2257.3, 1680.72, 2011.22, 1781.86, 2004.0]}], "Pastas": [{"n": "Spaghetti Gamberoni", "t": 8385.74, "q": 677, "v": [724.84, 792.95, 807.41, 1059.36, 1180.1, 860.33, 1095.69, 909.31, 955.75]}, {"n": "Spaghetti Carbonara", "t": 7488.35, "q": 626, "v": [860.33, 743.89, 1096.57, 633.44, 775.22, 840.55, 956.72, 684.63, 897.0]}, {"n": "Linguini Nero Gamberoni", "t": 7065.97, "q": 572, "v": [706.19, 687.05, 988.09, 628.79, 833.39, 879.64, 966.41, 773.39, 603.02]}, {"n": "Lasagne", "t": 5088.91, "q": 442, "v": [715.85, 462.87, 778.42, 478.58, 557.55, 551.08, 439.83, 610.23, 494.5]}, {"n": "Penne Boscaiola", "t": 5074.26, "q": 445, "v": [621.47, 537.53, 626.62, 462.87, 568.86, 435.04, 711.55, 563.55, 546.77]}, {"n": "Bolognese Spaghetti", "t": 3681.48, "q": 330, "v": [384.29, 328.98, 407.56, 415.96, 341.46, 425.78, 489.39, 450.65, 437.41]}, {"n": "Mezze Maniche", "t": 3463.96, "q": 287, "v": [373.42, 286.8, 388.4, 418.23, 477.87, 430.19, 487.04, 233.7, 368.31]}, {"n": "Tagliatelle Salciccia", "t": 2970.19, "q": 254, "v": [434.15, 298.75, 303.65, 373.45, 298.27, 331.32, 394.34, 227.04, 309.22]}], "Pizza": [{"n": "Pizza Cogumelos", "t": 6230.62, "q": 563, "v": [566.23, 537.54, 842.51, 662.5, 829.14, 630.82, 850.77, 693.06, 618.05]}, {"n": "Pizza Burrata", "t": 5556.52, "q": 444, "v": [486.31, 415.06, 901.35, 785.71, 729.11, 467.28, 744.76, 425.34, 601.6]}, {"n": "Pizza Diavola", "t": 5007.9, "q": 430, "v": [611.47, 430.27, 726.17, 695.08, 522.96, 372.01, 738.27, 485.89, 425.78]}, {"n": "Pizza Camarao", "t": 4435.92, "q": 360, "v": [384.08, 346.91, 655.1, 463.06, 530.46, 578.61, 560.8, 461.55, 455.35]}, {"n": "Pizza Margherita", "t": 4259.75, "q": 498, "v": [503.48, 434.52, 391.57, 475.64, 411.49, 423.69, 579.22, 598.47, 441.67]}, {"n": "Pizza Atum", "t": 3438.06, "q": 301, "v": [301.84, 273.04, 538.72, 408.0, 399.54, 290.28, 446.89, 308.26, 471.49]}, {"n": "Pizza Kids", "t": 2820.9, "q": 322, "v": [317.26, 292.05, 279.88, 261.95, 353.99, 274.35, 386.82, 327.17, 327.43]}, {"n": "Pizza Vegetariana", "t": 1559.79, "q": 137, "v": [232.86, 115.66, 258.63, 189.68, 136.07, 165.45, 195.44, 154.98, 111.02]}], "Especial": [{"n": "Francesinha", "t": 17030.0, "q": 1311, "v": [2245.05, 1638.98, 2279.83, 2193.54, 1859.54, 1911.67, 1269.07, 2101.6, 1530.72]}, {"n": "Caril Camarao", "t": 10827.44, "q": 842, "v": [1090.57, 822.36, 1154.68, 1269.87, 1456.91, 1436.98, 982.26, 1181.28, 1432.53]}, {"n": "Camarao Bras", "t": 7609.11, "q": 604, "v": [744.25, 981.86, 1149.52, 754.5, 592.72, 737.62, 988.76, 1004.94, 654.94]}, {"n": "Bife Grelhado", "t": 3365.46, "q": 219, "v": [237.16, 402.72, 480.13, 325.29, 433.68, 371.72, 531.0, 251.06, 332.7]}, {"n": "Bife Pimenta", "t": 2578.38, "q": 169, "v": [256.88, 229.56, 305.6, 414.01, 290.5, 402.72, 207.76, 200.46, 270.89]}, {"n": "Bife Mostarda", "t": 1906.96, "q": 123, "v": [237.31, 216.85, 298.31, 259.5, 162.64, 152.63, 155.94, 249.55, 174.23]}, {"n": "Bife Tuga", "t": 1607.16, "q": 107, "v": [115.0, 144.23, 176.85, 183.96, 187.4, 211.26, 172.39, 162.63, 253.44]}, {"n": "Bife Natas", "t": 1597.75, "q": 104, "v": [285.85, 130.4, 235.31, 158.42, 244.05, 103.54, 138.0, 165.07, 137.11]}], "Salada": [{"n": "Salada Camarão", "t": 12785.37, "q": 1063, "v": [879.35, 822.74, 1449.96, 1507.12, 1683.27, 1553.4, 2011.26, 1340.77, 1537.5]}, {"n": "Salada Frango", "t": 9834.37, "q": 887, "v": [689.58, 729.9, 1122.56, 1138.95, 1336.91, 1338.34, 1289.02, 1001.53, 1187.58]}, {"n": "Salada Salmão", "t": 8902.36, "q": 745, "v": [711.0, 442.11, 935.04, 967.92, 980.92, 1275.35, 1326.73, 1107.06, 1156.23]}, {"n": "Salada Presunto", "t": 2487.67, "q": 224, "v": [197.42, 120.68, 279.25, 257.08, 212.21, 298.62, 447.08, 228.41, 446.92]}, {"n": "Salada Pancetta", "t": 1676.33, "q": 132, "v": [0, 0, 0, 0, 346.38, 410.5, 423.4, 231.72, 264.33]}], "Sobremesa": [{"n": "Brownie", "t": 4738.81, "q": 906, "v": [618.62, 544.27, 499.14, 418.65, 711.51, 448.53, 527.38, 487.5, 483.21]}, {"n": "Mousse Choc. Pequena", "t": 1510.75, "q": 1454, "v": [176.56, 186.61, 172.31, 148.04, 182.05, 154.89, 191.95, 149.66, 148.68]}, {"n": "Cheesecake Frutos Vermelhos", "t": 1487.08, "q": 336, "v": [206.81, 164.71, 187.43, 199.76, 148.74, 175.34, 119.34, 148.27, 136.68]}, {"n": "Fondant Leite", "t": 1451.38, "q": 339, "v": [207.81, 189.08, 146.24, 179.34, 150.3, 153.27, 162.64, 146.37, 116.33]}, {"n": "Cheesecake Pistacho", "t": 1365.24, "q": 316, "v": [146.91, 182.43, 198.24, 166.53, 179.34, 143.32, 173.49, 86.31, 88.67]}, {"n": "Mousse Choc. Grande", "t": 1137.34, "q": 330, "v": [142.19, 166.23, 96.49, 107.97, 126.5, 102.48, 159.3, 95.48, 140.7]}, {"n": "CheeseCake Caramelo Salgado", "t": 1061.04, "q": 245, "v": [153.26, 109.57, 138.23, 97.48, 158.73, 95.47, 111.02, 109.63, 87.65]}, {"n": "Mousse Caram Pequena", "t": 965.92, "q": 932, "v": [134.21, 94.25, 109.66, 108.14, 117.11, 111.02, 119.15, 92.72, 79.66]}], "Cerveja": [{"n": "Imperial", "t": 7455.58, "q": 5163, "v": [637.18, 619.16, 888.11, 865.77, 991.75, 895.46, 1014.31, 724.41, 819.43]}, {"n": "Tulipa", "t": 2468.3, "q": 1092, "v": [272.58, 195.63, 313.72, 268.12, 258.63, 358.5, 298.35, 281.42, 221.35]}, {"n": "Caneca", "t": 2192.7, "q": 702, "v": [151.45, 198.93, 298.42, 207.64, 307.55, 186.6, 296.58, 253.44, 292.09]}, {"n": "Stout Imperial", "t": 1465.17, "q": 856, "v": [155.92, 121.66, 310.7, 158.78, 199.45, 154.74, 120.87, 87.96, 155.09]}, {"n": "Tulipa Stout", "t": 845.09, "q": 336, "v": [104.92, 65.87, 100.78, 95.44, 124.8, 111.69, 101.67, 63.44, 76.48]}, {"n": "Abadia Imperial", "t": 363.64, "q": 212, "v": [0, 4.89, 53.73, 70.76, 69.79, 45.62, 29.65, 27.3, 61.9]}, {"n": "Stout Caneca", "t": 272.71, "q": 83, "v": [29.25, 19.5, 35.75, 22.75, 45.56, 41.11, 16.25, 30.04, 32.5]}, {"n": "Panaché", "t": 241.78, "q": 197, "v": [21.98, 22.63, 35.4, 14.65, 25.63, 31.72, 45.12, 24.4, 20.25]}], "Coca-Cola": [{"n": "Coca Cola Zero", "t": 10891.4, "q": 5156, "v": [1201.04, 1064.82, 1163.05, 1198.6, 1189.4, 1340.99, 1393.38, 1015.07, 1325.05]}, {"n": "Coca Cola", "t": 5104.66, "q": 2414, "v": [649.68, 480.34, 584.23, 554.01, 635.03, 585.42, 568.13, 499.14, 548.68]}], "Limonada": [{"n": "Limonada Morango", "t": 7270.32, "q": 3418, "v": [780.72, 709.31, 818.09, 786.77, 867.26, 767.99, 954.03, 808.32, 777.83]}, {"n": "Limonada", "t": 4538.77, "q": 2161, "v": [515.48, 469.33, 554.45, 485.83, 607.73, 460.32, 602.5, 386.08, 457.05]}, {"n": "Limonada s/AÚucar", "t": 2625.1, "q": 1246, "v": [182.34, 236.24, 205.82, 288.53, 365.66, 338.53, 389.4, 336.3, 282.28]}], "Água": [{"n": "Vitalis 375ml", "t": 7568.59, "q": 5827, "v": [868.73, 661.2, 966.72, 859.82, 913.08, 882.82, 886.59, 765.24, 764.39]}, {"n": "Pedras Salgadas", "t": 2867.67, "q": 1335, "v": [196.06, 260.8, 296.91, 267.53, 315.81, 375.76, 359.7, 361.4, 433.7]}, {"n": "Pedras Limão", "t": 777.32, "q": 368, "v": [43.56, 53.74, 62.39, 92.72, 129.65, 77.33, 129.91, 77.42, 110.6]}, {"n": "Vitalis 50Cl", "t": 83.18, "q": 63, "v": [15.84, 9.31, 4.06, 1.33, 14.23, 6.63, 18.57, 5.28, 7.93]}, {"n": "Amendoa Amarga", "t": 3.26, "q": 1, "v": [0, 0, 0, 0, 0, 0, 0, 0, 3.26]}, {"n": "Vitalis 33cl", "t": 2.65, "q": 2, "v": [0, 0, 0, 0, 0, 2.65, 0, 0, 0]}], "Café": [{"n": "Café", "t": 13533.77, "q": 15336, "v": [1475.46, 1321.14, 1652.57, 1433.04, 1729.57, 1489.98, 1606.38, 1416.53, 1409.1]}, {"n": "Descafeinado", "t": 1040.78, "q": 1202, "v": [101.32, 102.92, 141.02, 106.63, 111.7, 108.43, 128.59, 111.36, 128.81]}, {"n": "Abatanado", "t": 75.29, "q": 86, "v": [9.74, 8.8, 6.17, 11.38, 7.03, 6.2, 13.0, 8.8, 4.17]}, {"n": "Capuccino", "t": 70.55, "q": 40, "v": [3.54, 5.28, 12.2, 10.62, 3.54, 5.28, 7.08, 14.16, 8.85]}, {"n": "Carioca Café", "t": 50.99, "q": 65, "v": [6.1, 8.0, 3.18, 8.12, 6.4, 7.19, 4.0, 3.2, 4.8]}, {"n": "Italiana", "t": 19.18, "q": 22, "v": [1.76, 0.88, 3.52, 0, 0, 0, 5.98, 1.76, 5.28]}, {"n": "Garoto", "t": 17.63, "q": 20, "v": [4.42, 2.64, 3.53, 0.88, 0.88, 0.88, 1.76, 0.88, 1.76]}, {"n": "Café Duplo", "t": 12.29, "q": 8, "v": [4.47, 0, 0, 1.59, 0, 1.59, 1.59, 1.59, 1.46]}], "Vitamina": [{"n": "Vitamina", "t": 4696.63, "q": 1742, "v": [469.05, 557.54, 662.86, 424.78, 561.83, 494.47, 608.49, 367.09, 550.52]}], "Sangria": [{"n": "Sangria tropical 1L", "t": 1676.09, "q": 138, "v": [162.62, 131.7, 189.67, 224.01, 217.74, 163.47, 212.22, 174.24, 200.42]}, {"n": "Sangria Branca Copo", "t": 1384.6, "q": 415, "v": [121.5, 154.88, 143.02, 123.5, 182.5, 211.28, 142.09, 118.99, 186.84]}, {"n": "Sangria Branca", "t": 1109.62, "q": 124, "v": [85.4, 99.4, 113.11, 148.47, 182.34, 128.19, 117.79, 119.92, 115.0]}, {"n": "Sangria Tropical 2L", "t": 995.86, "q": 48, "v": [122.97, 60.99, 60.99, 40.66, 122.65, 143.76, 176.82, 122.0, 145.02]}, {"n": "Sangria Tinto Copo", "t": 787.78, "q": 235, "v": [69.73, 100.7, 101.77, 81.25, 131.32, 78.01, 100.04, 71.64, 53.32]}, {"n": "Sangria Espumante", "t": 785.7, "q": 68, "v": [45.52, 92.72, 92.72, 70.1, 93.31, 34.16, 139.76, 136.56, 80.85]}, {"n": "Sangria 2L Tinto", "t": 645.74, "q": 42, "v": [77.42, 49.72, 80.82, 89.37, 91.04, 29.32, 33.15, 95.04, 99.86]}, {"n": "Sangria Tinta", "t": 640.81, "q": 73, "v": [70.22, 58.49, 97.6, 41.41, 81.92, 108.43, 69.96, 51.24, 61.54]}]};
@@ -782,6 +809,7 @@ function carregarDadosGestao() {
       if (erro) throw new Error(erro);
       CUSTOS = d.custos; FICHAS = d.fichas;
       selDishFichas = null;
+      if (d.meses_live) montarLive(d.meses_live);
       dadosGestaoEstado = { fonte: 'GitHub', versao: d.versao || '?', erro: '' };
       buildCustos(); buildFichas(); estadoDadosGestao();
     })
