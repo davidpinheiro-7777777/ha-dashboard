@@ -183,6 +183,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--surface2)}
 
 <section id="stocks">
   <div class="fch-pills" id="stocks-pills"></div>
+  <div class="grid2" id="stocks-fc"></div>
   <div class="grid4" id="stocks-cards"></div>
   <div class="grid2">
     <div class="chart-card">
@@ -832,6 +833,19 @@ function buildStocks() {
   ];
   const cont = document.getElementById('stocks-cards'); cont.innerHTML = '';
   cards.forEach(c => { cont.innerHTML += `<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls}" ${c.label === 'Maior valor em stock' ? 'style="font-size:18px"' : ''}>${c.value}</div><div class="card-sub">${c.sub}</div></div>`; });
+  // ---- indicadores de food cost (topo): peso do stock e food cost ajustado ao stock ----
+  const fcT = (D.kpi.fc_total || [])[selStock], vdT = (D.kpi.vendas_total || [])[selStock];
+  const diasMes = new Date(2026, selStock + 1, 0).getDate();
+  const consec = selStock > 0 && idx.includes(selStock - 1);
+  const dLike = consec ? STOCKS.itens.reduce((s, i) => { const a = stockVal(i, selStock), b = stockVal(i, selStock - 1); return (a !== null && b !== null) ? s + (a - b) : s; }, 0) : null;
+  const fcRaw = (fcT && vdT) ? fcT / vdT : null;
+  const fcAdj = (fcRaw !== null && dLike !== null) ? (fcT - dLike) / vdT : null;
+  const fcCards = [
+    { label: 'Stock sobre o food cost do mês (' + MN[selStock] + ')', value: fcT ? fmtP(tot / fcT) : '—', sub: fcT ? 'stock ' + fmtE(tot) + ' ÷ compras do mês ' + fmtE(fcT) + ' · cerca de ' + fmt(tot / (fcT / diasMes), 1) + ' dias de compras' : 'sem food cost fechado para este mês', cls: 'accent' },
+    { label: 'Food cost ajustado ao stock (' + MN[selStock] + ')', value: fcAdj !== null ? fmtP(fcAdj) : '—', sub: fcAdj !== null ? 'sem ajuste ' + fmtP(fcRaw) + ' · stock ' + sign(dLike) + fmtE(dLike) + ' = ' + sign(fcAdj - fcRaw) + ((fcAdj - fcRaw) * 100).toFixed(1) + ' pontos' : (fcRaw !== null ? 'sem ajuste ' + fmtP(fcRaw) + ' · falta a contagem do mês anterior' : 'sem food cost fechado para este mês'), cls: '' }
+  ];
+  const fcCont = document.getElementById('stocks-fc'); fcCont.innerHTML = '';
+  fcCards.forEach(c => { fcCont.innerHTML += `<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls}">${c.value}</div><div class="card-sub">${c.sub}</div></div>`; });
   if (chartStocks) chartStocks.destroy();
   chartStocks = new Chart(document.getElementById('c-stocks'), {
     type: 'bar',
@@ -856,7 +870,7 @@ function buildStocks() {
     tb.innerHTML += `<tr><td>${i.n}</td><td>${i.u}</td><td class="num">${i.p === null || i.p === undefined ? '—' : fmt(i.p, 2)}</td>${idx.map(m => `<td class="num">${stockQ(i.q[m])}</td>`).join('')}<td class="num">${v === null ? '—' : fmtE(v, 2)}</td><td class="num" style="${d === null ? '' : 'color:' + clr(d)}">${d === null ? '—' : sign(d) + fmtE(d, 2)}</td></tr>`;
   });
   tb.innerHTML += `<tr style="font-weight:600"><td>Valor total (€)</td><td></td><td></td>${idx.map(m => `<td class="num">${fmtE(stockTotal(m))}</td>`).join('')}<td class="num">${fmtE(tot, 2)}</td><td class="num">${dv === null ? '—' : sign(dv) + fmtE(dv, 2)}</td></tr>`;
-  const nt = document.getElementById('stocks-nota'); if (nt) nt.textContent = STOCKS.nota || '';
+  const nt = document.getElementById('stocks-nota'); if (nt) nt.textContent = (STOCKS.nota || '') + ' Food cost ajustado = (compras do mês − variação do stock) ÷ vendas totais; usa só os artigos contados e com preço nos dois meses seguidos.';
 }
 
 // ---- DADOS DE GESTÃO (custos e fichas): lidos do GitHub ao abrir; a cópia embutida é só um recurso ----
